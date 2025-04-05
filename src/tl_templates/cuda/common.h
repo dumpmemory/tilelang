@@ -25,6 +25,13 @@ using int4_t = int4;
 
 #define TL_DEVICE __forceinline__ __device__
 #define TL_DEVICE_NOINLINE __noinline__ __device__
+#define TL_PATCH
+
+// abs function for bfloat_t and half_t since there is no implicit convertion
+// method
+TL_PATCH TL_DEVICE half_t __habs(const half_t x) {
+  return half_t(__habs(x.to_half()));
+}
 
 // Pack two half values.
 TL_DEVICE unsigned __pack_half2(const half x, const half y) {
@@ -118,6 +125,8 @@ template <> TL_DEVICE void AtomicAdd(half_t *address, float val) {
 }
 
 // AtomicAdd Functions for BFLOAT16
+#if (defined(__CUDA_ARCH_LIST__) && (__CUDA_ARCH_LIST__ > 750))
+// AtomicAdd Functions for BFLOAT16
 template <> TL_DEVICE void AtomicAdd(bfloat16_t *address, bfloat16_t *val) {
   atomicAdd(reinterpret_cast<__nv_bfloat16 *>(address),
             static_cast<__nv_bfloat16>(*val));
@@ -128,16 +137,20 @@ template <> TL_DEVICE void AtomicAdd(bfloat16_t *address, float val) {
   atomicAdd(reinterpret_cast<__nv_bfloat16 *>(address), __float2bfloat16(val));
 }
 
-// AtomicAdd Functions for BFLOAT16
-template <> TL_DEVICE void AtomicAdd(bfloat16_t *address, bfloat16_t val) {
-  atomicAdd(reinterpret_cast<__nv_bfloat16 *>(address),
-            static_cast<__nv_bfloat16>(val));
-}
+#endif
 
 // AtomicAdd Functions for FP16x2
 TL_DEVICE void AtomicAddx2(half_t *address, half_t *val) {
   atomicAdd(reinterpret_cast<half2 *>(address),
             static_cast<half2>(*reinterpret_cast<half2 *>(val)));
+}
+
+#if (defined(__CUDA_ARCH_LIST__) && (__CUDA_ARCH_LIST__ > 750))
+
+// AtomicAdd Functions for BFLOAT16
+template <> TL_DEVICE void AtomicAdd(bfloat16_t *address, bfloat16_t val) {
+  atomicAdd(reinterpret_cast<__nv_bfloat16 *>(address),
+            static_cast<__nv_bfloat16>(val));
 }
 
 // AtomicAdd Functions for BFLOAT16x2
@@ -146,7 +159,7 @@ TL_DEVICE void AtomicAddx2(bfloat16_t *address, bfloat16_t *val) {
       reinterpret_cast<__nv_bfloat162 *>(address),
       static_cast<__nv_bfloat162>(*reinterpret_cast<__nv_bfloat162 *>(val)));
 }
-
+#endif
 // DP4A
 template <typename InDatatype, typename OutDatatype>
 TL_DEVICE void DP4A(InDatatype *a, InDatatype *b, OutDatatype *c) {
