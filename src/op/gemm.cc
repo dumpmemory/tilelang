@@ -256,8 +256,6 @@ LayoutMap Gemm::InferLayout(const LayoutInferArgs &T, InferLevel level) {
       ICHECK(0) << "WGMMA only support B in shared.";
     }
   } else if (TargetIsCDNA(T.target)) {
-    ICHECK(trans_B == true) << "Currently only support Transpose B for CDNA";
-
     const int warp_size = 64;
     auto [warp_m, warp_n] =
         ComputeWarpPartition(T.block_size / warp_size, T.target);
@@ -280,8 +278,8 @@ LayoutMap Gemm::InferLayout(const LayoutInferArgs &T, InferLevel level) {
                                                 A->dtype.bits(), kPack);
       results.Set(A, shared_layout);
     } else if (A.scope() == "local.fragment") {
-      results.Set(
-          A, makeGemmFragmentACDNA(M, N, K, M / warp_m, N / warp_n, trans_A));
+      results.Set(A, makeGemmFragmentACDNA(M, N, K, M / warp_m, N / warp_n,
+                                           A->dtype.bits(), trans_A));
     } else {
       ICHECK(0);
     }
