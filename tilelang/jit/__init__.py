@@ -34,7 +34,7 @@ logger = getLogger(__name__)
 def compile(
     func: PrimFunc = None,
     out_idx: Union[List[int], int, None] = None,
-    execution_backend: Literal["dlpack", "ctypes", "cython"] = "cython",
+    execution_backend: Literal["dlpack", "ctypes", "cython", "nvrtc"] = "cython",
     target: Union[str, Target] = "auto",
     target_host: Union[str, Target] = None,
     verbose: bool = False,
@@ -48,8 +48,8 @@ def compile(
         The TileLang TIR function to compile and wrap.
     out_idx : Union[List[int], int], optional
         Index(es) of the output tensors to return (default: None).
-    execution_backend : Literal["dlpack", "ctypes"], optional
-        Execution backend to use for kernel execution (default: "dlpack").
+    execution_backend : Literal["dlpack", "ctypes", "cython", "nvrtc"], optional
+        Execution backend to use for kernel execution (default: "cython").
     target : Union[str, Target], optional
         Compilation target, either as a string or a TVM Target object (default: "auto").
     target_host : Union[str, Target], optional
@@ -183,7 +183,8 @@ class _JitImplementation:
 
             key_args_tuple = args
             key_kwargs_tuple = tuple(sorted(kwargs.items()))
-            key = (key_args_tuple, key_kwargs_tuple)
+            tuned_key_kwargs_tuple = tuple(sorted(tune_params.items()))
+            key = (key_args_tuple, key_kwargs_tuple, tuned_key_kwargs_tuple)
 
             if key not in self._kernel_cache:
                 # Ensure 'func' (the original user function) is used correctly
@@ -194,9 +195,6 @@ class _JitImplementation:
                     program_result = program_result_source(*args, **kwargs, **tune_params)
                 else:
                     raise ValueError(f"Invalid function type: {type(program_result_source)}")
-
-                if self.verbose:
-                    logger.info(f"Verbose: Compiling for program \n {program_result.script()}")
 
                 kernel_result = compile(
                     program_result,

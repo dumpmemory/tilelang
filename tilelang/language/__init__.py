@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 """The language interface for tl programs."""
 
-from typing import Optional
+from typing import Optional, Callable, Dict
 # from .parser import *
 # now is fully compatible with the upstream
 # tir script
@@ -25,6 +25,7 @@ from .proxy import (
 )
 from .parallel import Parallel  # noqa: F401
 from .pipeline import Pipelined  # noqa: F401
+from .persistent import Persistent  # noqa: F401
 from .frame import has_let_value, get_let_value  # noqa: F401
 from .kernel import (
     Kernel,  # noqa: F401
@@ -111,8 +112,16 @@ def annotate_layout(layout_map: Dict):
         return main
     """
     # layout_map is a dictionary of buffer to layout
-    layout_map = {buffer.data: layout for buffer, layout in layout_map.items()}
-    return block_attr({"layout_map": layout_map})
+    _layout_map = {}
+    for buffer, layout in layout_map.items():
+        if isinstance(layout, Layout):
+            _layout_map[buffer.data] = layout
+        elif isinstance(layout, Callable):
+            _layout_map[buffer.data] = Layout(buffer.shape, layout)
+        else:
+            raise ValueError(f"Invalid layout: {layout}")
+
+    return block_attr({"layout_map": _layout_map})
 
 
 def annotate_padding(padding_map: Dict):
